@@ -1,0 +1,35 @@
+import os
+from PIL import Image
+import numpy as np
+import pandas as pd
+import cv2
+import scipy.misc
+
+def img_to_csv(impath):
+    dtl=np.asarray(Image.open(impath))
+    dfrm = pd.DataFrame(dtl)
+    dfrm.to_csv(str(str.split(impath,'/')[len(str.split(impath,'/'))-1])[:-4] +'.csv')
+    return dfrm
+
+def img_fltr(impath,n):
+    im = Image.open(impath)
+    H = im.size[0]-1
+    L = im.size[1]-1
+    moyR = 0
+    moyV = 0
+    moyB = 0
+    for b in range(H//n): # // correspond à la division entière en Python
+        for a in range(L//n):
+            for d in range(n):
+                for c in range(n):
+                    p = im.getpixel((b*n+c , a*n+d))
+                    moyR = moyR + p[0]
+                    moyV = moyV + p[1]
+                    moyB = moyB + p[2]
+            moyR = int(moyR / (n*n))
+            moyV = int(moyV / (n*n))
+            moyB =int(moyB / (n*n))
+            for g in range(n):
+                    for h in range(n):
+                        im.putpixel((b*n+h , a*n+g),(moyR,moyV,moyB))
+    return im
