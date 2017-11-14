@@ -9,7 +9,7 @@ Created on Mon Nov  6 14:45:23 2017
     Importation of Packages
 ============================================================================"""
 
-import utils
+import utils_media as utils
 import os
 import re
 import pandas as pd
@@ -23,7 +23,7 @@ from bs4 import BeautifulSoup
     Extract informations from soup and Make Data
 ------------------------------------------------"""
 
-def ExtractFromSoup(path_meta):
+def ExtractFromSoup(path_meta, filesDf):
     """
         Descr :
             This function make dataframes from videos features
@@ -80,6 +80,8 @@ def ExtractFromSoup(path_meta):
         file_link = iSoup.file.link.get_text()
         file_size = iSoup.file.size.get_text()
         
+        subId = dfIds[(dfIds["nom"] == file_name + ".ogv.xml")]
+        file_id = [x for x in subId["iddoc"]][0]
         """-------------
             Définition de la structure des 4 dicos,
             correspondants à celles des dataframes souhaitées
@@ -87,7 +89,8 @@ def ExtractFromSoup(path_meta):
         ## Tags
         v_tags = iSoup.tags.find_all("string")
         for tag in v_tags:
-            tDict = {"vd_id": i, "keyword": tag.get_text()}
+            tDict = {"iddoc": file_id,
+                     "keyword": tag.get_text()}
             tagsFeatures_ls += [tDict]
             continue
         
@@ -120,7 +123,8 @@ def ExtractFromSoup(path_meta):
                  "upl_user_id": upl_user_id,
                  "file_name": file_name,
                  "file_link": file_link,
-                 "file_size": file_size}
+                 "file_size": file_size,
+                 "iddoc": file_id}
         
         videosFeatures_ls += [vDict]
         continue
@@ -141,7 +145,7 @@ def ExtractFromSoup(path_meta):
     vidDf.sort_values("vd_id")
     usDf.sort_values("user_id")
     liceDf.sort_values("license_id")
-    tagsDf.sort_values(["vd_id", "keyword"])
+    tagsDf.sort_values(["iddoc", "keyword"])
     
     ## results
     return vidDf, usDf, liceDf, tagsDf
@@ -171,24 +175,8 @@ files_ls = [(path_files + f) for f in shortFiles]
 dfIds = pd.read_csv(path_proj + "data/database/Liste_Videos.csv", sep = ";")
 
 ## Data Frame
-videosDf, usersDf, licensesDf, keywordsDf = ExtractFromSoup(path_files)
+dfVideos, dfUsers, dfLicenses, dfKeywords = ExtractFromSoup(path_files, dfIds)
 
-
-"""---------------------------------------
-    Merging
----------------------------------------"""
-
-
-## Create a new variable to merge
-## dfIds.short_name = videosDf.file_name
-
-## MERGE
-dfIds["short_name"] = [re.sub("\.ogv\.xml", "", x) for x in dfIds["nom"]]
-videosDf = pd.merge(left = videosDf,
-                   right = dfIds[["iddoc", "short_name"]],
-                   left_on = "file_name",
-                   right_on = "short_name")
-del videosDf["short_name"]
 
 """---------------------------------------
     Export
@@ -196,19 +184,19 @@ del videosDf["short_name"]
 
 path_output = path_proj + "/data/database/"
 ## videos
-videosDf.to_csv(path_output + "videos.csv",
+dfVideos.to_csv(path_output + "videos.csv",
                 sep = ";",
                 index = False)
 ## users
-usersDf.to_csv(path_output + "users.csv",
+dfUsers.to_csv(path_output + "users.csv",
                sep = ";",
                index = False)
 ## licenses
-licensesDf.to_csv(path_output + "licenses.csv",
+dfLicenses.to_csv(path_output + "licenses.csv",
                   sep = ";",
                   index = False)
 ## tags
-keywordsDf.to_csv(path_output + "keywords.csv",
+dfKeywords.to_csv(path_output + "keywords.csv",
                   sep = ";",
                   index = False)
 
