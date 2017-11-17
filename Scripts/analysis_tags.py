@@ -12,7 +12,6 @@ Analysis of metadata : tags
 ============================================================================"""
 
 import os
-import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -22,101 +21,88 @@ from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import CountVectorizer
 
 import utils_media as utils
-from target_categories import target_categories as target_categs
 
-"""============================================================================
-    Functions
-============================================================================"""
+from sklearn.ensemble import RandomForestClassifier
 
-def ValidWord(w, min_char = 3, stop_words = []):
-    """
-        Valid a word
-    """
-    w = w.lower()
-    w = re.sub("\s+", "", w)
-    w = re.sub("[^a-z0-9]+", "", w)
-    ok = (len(w) >= min_char and w.lower() not in stop_words)
-    return ok
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
 
 
-def Count_Occurences(data, groups):
-    """
-    """
-    sizes = data.groupby(groups).size().rename("count")
-    dfGrouped = pd.DataFrame(sizes)
-    dfGrouped.reset_index(inplace = True)
-    if (len(groups) >= 2):
-        dfCounts = dfGrouped.pivot(index = groups[0],
-                                   columns = groups[1],
-                                   values = "count")
-        dfCounts = dfCounts.fillna(0)
-        resDf = dfCounts
-    else:
-        resDf = dfGrouped
-    return resDf 
-
-
-def take_n_greatest(x, n = 10):
-    y = x[x != 0].sort_values(ascending = False)
-    if len(y) >= n:
-        res = [(y.index[i], int(y[i])) for i in range(n)]
-    else:
-        res = [(y.index[i], int(y[i])) for i in range(len(y))]
-        res += [np.nan for i in range(len(y), n)]
-    return res
 
 
 """============================================================================
     Main program
 ============================================================================"""
 
-path_proj = "D:/Ced/Documents/UNIVERSITE/Cours/2017_M2-SID/mediaeval/"
-AllkeywordsData = pd.read_csv(path_proj + "data/database/keywords.csv", sep = ";")
+path_proj = 'D:/Ced/Documents/UNIVERSITE/Cours/2017_M2-SID/mediaeval/'
+AllkeywordsData = pd.read_csv(path_proj + 'data/database/keywords.csv', sep = ';')
 
-dfCateg = pd.read_csv(path_proj + "data/database/Liste_Videos.csv", sep = ";")
-dfCateg["categ"] = [target_categs[str(cat)] for cat in dfCateg["categorie"]]
+dfCateg = pd.read_csv(path_proj + 'data/database/Liste_Videos.csv',
+                      sep = ';')
 
-stopwords_ls = stopwords.words("english")
+categs_lab = [utils.target_categs[k] for k in utils.target_categs]
 
-"""----------------------------------------------
+fcateg = [utils.target_categs[str(cat)] for cat in dfCateg['categorie']]
+
+dfCateg["categ"] = fcateg
+
+
+stopwords_ls = stopwords.words('english')
+
+"""------------------------------------------------------------
     dfKeywords
-----------------------------------------------"""
+------------------------------------------------------------"""
 
 dfKeywords = AllkeywordsData[[
-        ValidWord(k,
-                  min_char = 4,
-                  stop_words = stopwords_ls) for k in AllkeywordsData["keyword"]
+        utils.ValidWord(k,
+                        min_char = 4,
+                        stop_words = stopwords_ls)
+        for k in AllkeywordsData['keyword']
 ]]
+
 dfKeywords = pd.merge(dfKeywords,
-                      right = dfCateg[["iddoc", "categ"]],
-                      on = "iddoc")
-dfKeywords = dfKeywords.sort_values(["keyword"])
+                      right = dfCateg[['iddoc', 'categ']],
+                      on = 'iddoc')
 
-"""----------------------------------------------
+dfKeywords = dfKeywords.sort_values(['keyword'])
+
+"""------------------------------------------------------------
     countDf
-----------------------------------------------"""
+------------------------------------------------------------"""
 
-countKW = Count_Occurences(dfKeywords, ["keyword"])
+countKW = utils.Count_Occurences(dfKeywords, ['keyword'])
 
-countKW_docs = pd.concat([pd.Series(dfCateg["iddoc"], index = dfCateg.index),
-                          pd.Series(dfCateg["categ"], index = dfCateg.index),
-                          Count_Occurences(data = dfKeywords,
-                                           groups = ["iddoc", "keyword"])],
-                          axis = 1).fillna(0)
+scateg = pd.Series(dfCateg['categ'], index = dfCateg['iddoc'])
+scount = utils.Count_Occurences(data = dfKeywords, groups = ['iddoc', 'keyword'])
 
-countKW_categs = Count_Occurences(dfKeywords, ["keyword", "categ"])
+countKW_docs = pd.concat([scateg, scount], axis = 1, join = 'outer')
+countKW_docs = countKW_docs.fillna(0)
+countKW_docs = countKW_docs.sort_values(["categ"])
 
-"""----------------------------------------------
+countKW_docs.to_csv(path_proj + 'output/count_words_docs.csv',
+                    sep = ";",
+                    index = True)
+
+countKW_categs = utils.Count_Occurences(dfKeywords, ['keyword', 'categ'])
+
+"""------------------------------------------------------------
     10 first words
-----------------------------------------------"""
+------------------------------------------------------------"""
 
-regularWords_categs = countKW_categs.apply(take_n_greatest)
+regularWords_categs = countKW_categs.apply(utils.take_n_greatest)
+
 regularWords_categs = pd.DataFrame.from_dict(regularWords_categs.to_dict(),
-                                             orient = "index")
+                                             orient = 'index')
 
-"""----------------------------------------------
+regularWords_categs.to_csv(path_proj + 'output/10words_bycateg.csv',
+                           sep = ";",
+                           index = True)
+
+
+
+"""------------------------------------------------------------
     PCA
-----------------------------------------------"""
+------------------------------------------------------------"""
 
 from Build_PCA import Build_PCA
 
@@ -125,29 +111,48 @@ pca = Build_PCA(countKW_categs, 5)
 pca.plot([1, 2])
 pca.plot([1, 3])
 
-"""----------------------------------------------
+
+"""------------------------------------------------------------
     Random Forest
-----------------------------------------------"""
+------------------------------------------------------------"""
+
+## Make random train and test data
+dfX = countKW_docs.drop(["categ"], axis = 1)
+dfY = countKW_docs["categ"]
+
+Xtrain, Xtest, Ytrain, Ytrue = train_test_split(dfX, dfY,
+                                                test_size = 0.21)
 
 
+rfc = RandomForestClassifier(n_estimators = 10,
+                             criterion = "gini")
+
+rffit = rfc.fit(Xtrain, Ytrain)
+Ypred = pd.Series(rffit.predict(Xtest), index = Ytrue.index)
 
 
+Ypred_proba = pd.DataFrame(rffit.predict_proba(Xtest),
+                           index = Xtest.index,
+                           columns = categs_lab)
 
 
+rfconfus = confusion_matrix(Ytrue, Ypred, labels = dfY.unique())
 
+dfConfus = pd.DataFrame(rfconfus,
+                        index = dfY.unique(),
+                        columns = dfY.unique())
 
-
+rfscore = rffit.score(Xtest, Ytrue)
+print(rfscore)
 
 """============================================================================
     Brouillon
 ============================================================================"""
 
 
-
-
-'''
+"""
 lemmatizer = WordNetLemmatizer()
-subKeysDf_df["keyword"] = [lemmatizer.lemmatize(w) for w in subKeysDf_df["keyword"]]
-'''
+subKeysDf_df['keyword'] = [lemmatizer.lemmatize(w) for w in subKeysDf_df['keyword']]
+"""
 
 
