@@ -17,10 +17,10 @@ import numpy as np
     Dico
 ============================================================================'''
 
-target_categs = {'1001':'Autos and vehicule',
-                 '1009':'Food and drink',
+target_categs = {'1001':'Autos_vehicule',
+                 '1009':'Food_drink',
                  '1011':'Health',
-                 '1013':'Movies and television',
+                 '1013':'Movies_television',
                  '1014':'Litterature',
                  '1016':'Politics',
                  '1017':'Religion',

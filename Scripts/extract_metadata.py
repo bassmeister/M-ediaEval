@@ -105,7 +105,7 @@ def ExtractFromSoup(path_meta):
         v_tags = iSoup.tags.find_all("string")
         for tag in v_tags:
             tDict = {"vd_id": i,
-                     "keyword": tag.get_text()}
+                     "tag": tag.get_text()}
             tagsFeatures_ls += [tDict]
             continue
         
@@ -159,7 +159,7 @@ def ExtractFromSoup(path_meta):
     metaDf.sort_values("vd_id")
     usDf.sort_values("user_id")
     liceDf.sort_values("license_id")
-    tagsDf.sort_values(["vd_id", "keyword"])
+    tagsDf.sort_values(["vd_id", "tag"])
     
     ## results
     return metaDf, usDf, liceDf, tagsDf
@@ -177,7 +177,7 @@ dfVideos = pd.read_csv(path_proj + "database/Liste_Videos.csv",
                        sep = ";")
 
 ## Data Frame
-metaDf, dfUsers, dfLicenses, dfKeywords = ExtractFromSoup(path_meta)
+metaDf, dfUsers, dfLicenses, dfTags = ExtractFromSoup(path_meta)
 
 metadata = pd.merge(left = metaDf,
                     right = dfVideos[['iddoc', 'nom']],
@@ -187,6 +187,11 @@ metadata = pd.merge(left = metaDf,
 metadata = metadata.drop(['nom', 'file_name'], axis = 1)
 
 
+dfTags = pd.merge(left = metadata[['vd_id', 'iddoc']],
+                  right = dfTags,
+                  on = 'vd_id')
+
+dfTags = dfTags.drop(['vd_id'], axis = 1)
 
 
 """----------------------------------------------------------
@@ -208,7 +213,7 @@ dfLicenses.to_csv(path_output + "licenses.csv",
                   sep = ";",
                   index = False)
 ## tags
-dfKeywords.to_csv(path_output + "keywords.csv",
-                  sep = ";",
-                  index = False)
+dfTags.to_csv(path_output + "tags.csv",
+              sep = ";",
+              index = False)
 

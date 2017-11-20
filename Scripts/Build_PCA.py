@@ -19,7 +19,8 @@ class Build_PCA:
     def __init__(self, X, ncp = 5):
         pca = decomposition.PCA(n_components = ncp)
         pcafit = pca.fit(X)
-        self.pca = pcafit
+        self.pca = pca
+        self.fit = pcafit
         self.data = X
         self.ncp = ncp
     
@@ -31,7 +32,7 @@ class Build_PCA:
         print("Error ! There is no attribute \"{}\" !".format(name))
     
     def coords(self):
-        coords = self.pca.transform(self.data)
+        coords = self.fit.transform(self.data)
         return coords
         
     def plot(self, axis = [1, 2], color = "b"):

@@ -15,98 +15,114 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+
 from sklearn.feature_extraction.text import CountVectorizer
-
-import utils_media as utils
-
 from sklearn.ensemble import RandomForestClassifier
-
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 
-
-
+from Build_PCA import Build_PCA
+import utils_media as utils
 
 """============================================================================
-    Main program
+    Paths and Importation
 ============================================================================"""
 
+## Paths
 path_proj = 'D:/Ced/Documents/UNIVERSITE/Cours/2017_M2-SID/mediaeval/'
-AllkeywordsData = pd.read_csv(path_proj + 'data/database/keywords.csv', sep = ';')
+path_data = path_proj + 'database/'
 
-dfCateg = pd.read_csv(path_proj + 'data/database/Liste_Videos.csv',
-                      sep = ';')
+"""============================================================================
+    Import
+============================================================================"""
 
-categs_lab = [utils.target_categs[k] for k in utils.target_categs]
+## Tags
+AllTagsData = pd.read_csv(path_data + 'tags.csv', sep = ';')
 
-fcateg = [utils.target_categs[str(cat)] for cat in dfCateg['categorie']]
+## Categories
+dfCateg = pd.read_csv(path_data + 'Liste_Videos.csv', sep = ';')
 
-dfCateg["categ"] = fcateg
-
-
+## Stopwords
 stopwords_ls = stopwords.words('english')
 
+"""============================================================================
+     Remake data
+============================================================================"""
 """------------------------------------------------------------
-    dfKeywords
+    dfCategs
+------------------------------------------------------------"""
+## List of Categories Labels
+categs_lab = [utils.target_categs[k] for k in utils.target_categs]
+
+## Replace categories in dfCateg
+fcateg = [utils.target_categs[str(cat)] for cat in dfCateg['categorie']]
+dfCateg["categ"] = fcateg
+
+"""------------------------------------------------------------
+    dfTags
 ------------------------------------------------------------"""
 
-dfKeywords = AllkeywordsData[[
-        utils.ValidWord(k,
-                        min_char = 4,
-                        stop_words = stopwords_ls)
-        for k in AllkeywordsData['keyword']
-]]
+words_ls = [utils.ValidWord(k, 4, stopwords_ls) for k in AllTagsData['tag']]
 
-dfKeywords = pd.merge(dfKeywords,
-                      right = dfCateg[['iddoc', 'categ']],
-                      on = 'iddoc')
+dfTags = pd.merge(left = AllTagsData[words_ls],
+                  right = dfCateg[['iddoc', 'categ']],
+                  on = 'iddoc')
 
-dfKeywords = dfKeywords.sort_values(['keyword'])
+dfTags = dfTags.sort_values(['tag'])
+
 
 """------------------------------------------------------------
     countDf
 ------------------------------------------------------------"""
 
-countKW = utils.Count_Occurences(dfKeywords, ['keyword'])
+countTags = utils.Count_Occurences(dfTags, ['tag'])
 
 scateg = pd.Series(dfCateg['categ'], index = dfCateg['iddoc'])
-scount = utils.Count_Occurences(data = dfKeywords, groups = ['iddoc', 'keyword'])
+scount = utils.Count_Occurences(data = dfTags, groups = ['iddoc', 'tag'])
 
-countKW_docs = pd.concat([scateg, scount], axis = 1, join = 'outer')
-countKW_docs = countKW_docs.fillna(0)
-countKW_docs = countKW_docs.sort_values(["categ"])
+countTags_docs = pd.concat([scateg, scount], axis = 1, join = 'outer')
+countTags_docs = countTags_docs.fillna(0)
+countTags_docs = countTags_docs.sort_values(["categ"])
 
-countKW_docs.to_csv(path_proj + 'output/count_words_docs.csv',
+countTags_docs.to_csv(path_proj + 'output/count_tags_docs.csv',
                     sep = ";",
                     index = True)
 
-countKW_categs = utils.Count_Occurences(dfKeywords, ['keyword', 'categ'])
+countTags_categs = utils.Count_Occurences(dfTags, ['tag', 'categ'])
+
+countTags_categs.to_csv(path_proj + 'output/count_tags_categs.csv',
+                        sep = ";",
+                        index = True)
+
+
 
 """------------------------------------------------------------
     10 first words
 ------------------------------------------------------------"""
 
-regularWords_categs = countKW_categs.apply(utils.take_n_greatest)
+regularTags_categs = countTags_categs.apply(utils.take_n_greatest)
 
-regularWords_categs = pd.DataFrame.from_dict(regularWords_categs.to_dict(),
+regularTags_categs = pd.DataFrame.from_dict(regularTags_categs.to_dict(),
                                              orient = 'index')
 
-regularWords_categs.to_csv(path_proj + 'output/10words_bycateg.csv',
+regularTags_categs.to_csv(path_proj + 'output/10words_bycateg.csv',
                            sep = ";",
                            index = True)
-
-
 
 """------------------------------------------------------------
     PCA
 ------------------------------------------------------------"""
 
-from Build_PCA import Build_PCA
 
-pca = Build_PCA(countKW_categs, 5)
+pca = Build_PCA(countTags_categs, 5)
+
+inertie = pca.fit.explained_variance_ratio_
+inertie
+
 
 pca.plot([1, 2])
 pca.plot([1, 3])
@@ -117,8 +133,8 @@ pca.plot([1, 3])
 ------------------------------------------------------------"""
 
 ## Make random train and test data
-dfX = countKW_docs.drop(["categ"], axis = 1)
-dfY = countKW_docs["categ"]
+dfX = countTags_docs.drop(["categ"], axis = 1)
+dfY = countTags_docs["categ"]
 
 Xtrain, Xtest, Ytrain, Ytrue = train_test_split(dfX, dfY,
                                                 test_size = 0.21)
@@ -152,7 +168,7 @@ print(rfscore)
 
 """
 lemmatizer = WordNetLemmatizer()
-subKeysDf_df['keyword'] = [lemmatizer.lemmatize(w) for w in subKeysDf_df['keyword']]
+subKeysDf_df['tag'] = [lemmatizer.lemmatize(w) for w in subKeysDf_df['tag']]
 """
 
 
