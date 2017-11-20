@@ -16,6 +16,9 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 import pandas as pd
 from scipy.sparse import csr_matrix
+import nltk
+from nltk.stem import WordNetLemmatizer
+import string
 
 
     
@@ -51,42 +54,53 @@ def open_doc(path):
            
     return corpus  
 
+
+
+def tokenize(text):
+    text = ''.join([ch for ch in text if ch not in string.punctuation])
+    tokens = nltk.word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+    lemmes = [lemmatizer.lemmatize(token) for token in tokens]
+    return [l for l in lemmes if len(l) > 2]
+
 # Extracting features from text files
 def run(corpus):
-
-    count_vect = CountVectorizer()
+    #trans_tf_dfs = []
+    count_vect = CountVectorizer(tokenizer=tokenize, stop_words='english')
     X = count_vect.fit_transform(corpus)
         
     # TF-IDF
     tfidf_transformer = TfidfTransformer()
     X_tfidf = tfidf_transformer.fit_transform(X)
-            
-    return X_tfidf
+    #trans_tf_dfs      
+    return X_tfidf,X
 
 """
 Probleme de l'extraction 
 
 """
-def export_transTFIDF(d,path):
+def export_transTFIDF(data,path_out):
 
-    sdf = pd.SparseDataFrame(d)
     #Export Data
-    path_output = path
+    path_output = path_out
     ## videos
-    sdf.to_csv(path_output + "transTFIDF.csv",sep = ";",index = False)
+    data.to_csv(path_output + "transTFIDF.csv",sep = ";")
  
 
 # MAIN
            
 path = '/Users/nabil/Desktop/TER_Challenge/DEV_M2SID_LIMSI_ASR/'
 corpus = open_doc(path)
-X_TFId = run(corpus)
+X_TfIdf , Vect = run(corpus)
+
+
+files= os.listdir(path)
+X = X_TfIdf.todense()
+trans_TFIDF = pd.DataFrame(X,index=(f for f in files))#, columns = Vect.get_feature_names())#,columns=Vect.todense().get_feature_names())
+            
 
 path_out = '/Users/nabil/Desktop/TER_Challenge/'
-
-export_transTFIDF(X_TFId,path_out)
-
-
+trans_TFIDF.to_csv(path_out + "transTFIDF.csv",sep = ";")
 
 
 
