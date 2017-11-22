@@ -70,12 +70,12 @@ def ExtractFromSoup(path_meta):
     liceFeatures_ls = []
     tagsFeatures_ls = []
     
-    for i in range(len(files_ls)):
+    for vid in range(len(files_ls)):
         """-------------
             Pour un fichier donné, on recueille le contenu,
             qu'on structure en object "soup"
         -------------"""
-        iFile = files_ls[i]
+        iFile = files_ls[vid]
         with open(iFile) as fp:
             contenu = fp.read()
         iSoup = BeautifulSoup(contenu, "xml")
@@ -102,11 +102,19 @@ def ExtractFromSoup(path_meta):
             correspondants à celles des dataframes souhaitées
         -------------"""
         ## Tags
-        v_tags = iSoup.tags.find_all("string")
-        for tag in v_tags:
-            tDict = {"vd_id": i,
-                     "tag": tag.get_text()}
-            tagsFeatures_ls += [tDict]
+        v_alltags = iSoup.tags.find_all("string")
+        v_tags = []
+        for t in v_alltags:
+            tag = t.get_text()
+            tag = re.sub("^\s+", "", tag)
+            tag = re.sub("\s+$", "", tag)
+            if len(tag) >= 1:
+                v_tags.append(tag)
+                tDict = {"vd_id": vid,
+                     "tag": tag}
+                tagsFeatures_ls += [tDict]
+            else:
+                pass
             continue
         
         ## Uploader
@@ -128,17 +136,18 @@ def ExtractFromSoup(path_meta):
             lc_ids += [license_id]
         
         ## Videos
-        vDict = {"vd_id": i,
+        vDict = {"vd_id": vid,
+                 "file_name": file_name,
                  "vd_title": v_title,
                  "vd_descr": v_descr,
                  "vd_explicit": v_explicit,
                  "vd_duration": v_duration,
                  "vd_url": v_url,
+                 "file_link": file_link,
+                 "file_size": file_size,
                  "license_id": license_id,
                  "upl_user_id": upl_user_id,
-                 "file_name": file_name,
-                 "file_link": file_link,
-                 "file_size": file_size}
+                 "vd_tags": v_tags}
         
         metaFeatures_ls += [vDict]
         continue
@@ -174,25 +183,29 @@ def ExtractFromSoup(path_meta):
 
 ## Import Data
 dfVideos = pd.read_csv(path_proj + "database/Liste_Videos.csv",
-                       sep = ";")
+                       sep = ";",
+                       dtype = {'categorie': 'category'})
 
 ## Data Frame
 metaDf, dfUsers, dfLicenses, dfTags = ExtractFromSoup(path_meta)
 
-metadata = pd.merge(left = metaDf,
-                    right = dfVideos[['iddoc', 'nom']],
-                    left_on = 'file_name',
-                    right_on = 'nom')
-
-metadata = metadata.drop(['nom', 'file_name'], axis = 1)
-
+metadata = pd.merge(left = dfVideos[['iddoc', 'nom', 'categorie']],
+                    right = metaDf,
+                    left_on = 'nom',
+                    right_on = 'file_name')
 
 dfTags = pd.merge(left = metadata[['vd_id', 'iddoc']],
                   right = dfTags,
                   on = 'vd_id')
 
-dfTags = dfTags.drop(['vd_id'], axis = 1)
 
+
+metadata = metadata.drop(['nom', 'vd_id', 'vd_url', 'file_link'],
+                         axis = 1)
+metadata = metadata.sort_values(["iddoc"])
+
+dfTags = dfTags.drop(['vd_id'], axis = 1)
+dfTags = dfTags.sort_values(["iddoc", "tag"])
 
 """----------------------------------------------------------
     Export
